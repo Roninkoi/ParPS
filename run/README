@@ -1,0 +1,44 @@
+Running the code
+================
+
+./parps <infile> <outfile> <n> <gamma> <crit>
+
+infile = input file for g as an n x n matrix, edges are boundary conditions for f
+infile = solution output file for f as an n x n matrix
+n = system size
+gamma = over-relaxation parameter ]1, 2[
+crit = convergence criterion (sum of all differences between iterations)
+
+Examples
+--------
+
+(in directory run)
+
+Run as a serial program, solve sinsq64.dat and place solution into serial.dat:
+
+../parps sinsq64.dat serial.dat 64 1.5 0.001
+
+Run in parallel with 4 processes:
+
+mpirun -np parps sinsq64.dat parallel.dat 64 1.5 0.001
+
+On Turso, the srun command is used:
+
+srun --mpi=pmix -n 4 ../parps sinsq64.dat parallel.dat 64 1.5 0.001
+
+Plotting
+--------
+
+To plot the example result matrices and compare them:
+
+../plotmat.py serial.dat parallel.dat
+
+To monitor convergence of solutions from log files in real time, a Gnuplot script can be used (run from ..):
+
+gnuplot residual.gp
+
+The scripts plotgamma.py and plotscaling.py are used to plot the gamma
+optimization curves and solution time scaling curves respectively.
+Data files for these are are gathered from the run log files using
+grep, sed and awk in ../plot.sh
+

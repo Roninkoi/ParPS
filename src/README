@@ -1,0 +1,19 @@
+Compiling the code
+==================
+
+The code is written in C, and uses the C math and MPI libraries. It is compiled using GCC with the gnu11/C11 standard.
+
+Python is used for plotting data files (files in directory above).
+
+Compile
+-------
+
+make
+
+(produces executable "parps")
+
+Clean executables
+-----------------
+
+make clean
+
