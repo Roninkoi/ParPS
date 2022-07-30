@@ -11,19 +11,19 @@ $$
 \frac{\partial^2}{\partial x^2} f(x, y) + \frac{\partial^2}{\partial y^2} f(x, y) = g(x, y)
 $$
 
-on a square in parallel using OpenMPI. Successive over-relaxation is used to obtain a solution $f$ from RHS $g$. Solution is parallelized using domain decomposition on the unit square, which allows each CPU to solve a piece off the whole problem. Code written in C, with Python plotting. See doc.pdf for further documentation.
+on a square in parallel using OpenMPI. Successive over-relaxation is used to obtain a solution $f$ from RHS $g$. Solution is parallelized using domain decomposition on the unit square, which allows each CPU to solve a piece of the whole problem. Code written in C, with Python plotting. See doc.pdf for further documentation.
 
 Usage:
 
 `./parps <infile> <outfile> <n> <gamma> <crit>`
 
-infile = input file for g as an n x n matrix, edges are boundary conditions for f
+infile = input file for $g$ as an $n \times n$ matrix, edges are boundary conditions for $f$
 
-infile = solution output file for f as an n x n matrix
+infile = solution output file for $f$ as an $n \times n$ matrix
 
 n = system size
 
-gamma = over-relaxation parameter ]1, 2[
+gamma = over-relaxation parameter $]1, 2[$
 
 crit = convergence criterion (sum of all differences between iterations)
 
