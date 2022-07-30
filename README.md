@@ -23,7 +23,7 @@ infile = solution output file for $f$ as an $n \times n$ matrix
 
 n = system size
 
-gamma = over-relaxation parameter $]1, 2[$
+gamma = over-relaxation parameter $\gamma \in ]1, 2[$
 
 crit = convergence criterion (sum of all differences between iterations)
 
@@ -31,9 +31,9 @@ crit = convergence criterion (sum of all differences between iterations)
 
 To plot the example result matrices and compare them:
 
-./plotmat.py serial.dat parallel.dat
+`./plotmat.py serial.dat parallel.dat`
 
 To monitor convergence of solutions from log files in real time, a Gnuplot script can be used:
 
-gnuplot residual.gp
+`gnuplot residual.gp`
 
