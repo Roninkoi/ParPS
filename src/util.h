@@ -16,7 +16,7 @@
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
-// print n x n matrix
+// print n x m matrix
 static void matPrint(double *a, int n, int m)
 {
 	for (int i = 0; i < n; ++i) {
@@ -27,7 +27,7 @@ static void matPrint(double *a, int n, int m)
 	}
 }
 
-// print n x n matrix to file fd
+// print n x m matrix to file fd
 static void matFilePrint(FILE *fd, double *a, int n, int m)
 {
 	for (int i = 0; i < n; ++i) {
@@ -38,7 +38,7 @@ static void matFilePrint(FILE *fd, double *a, int n, int m)
 	}
 }
 
-// read n x n matrix from file fd
+// read n x m matrix from file fd
 static void matFileRead(FILE *fd, double *a, int n, int m)
 {
 	for (int i = 0; i < n; ++i) {
@@ -48,7 +48,7 @@ static void matFileRead(FILE *fd, double *a, int n, int m)
 	}
 }
 
-// set ns x ns submatrix s into n x n matrix a at position i0, j0
+// set ns x ms submatrix s into n x m matrix a at position i0, j0
 static void matSetSub(double *a, int n, int m, int i0, int j0, double *s, int ns, int ms)
 {
 	for (int i = 0; i < ns; ++i) {
@@ -58,7 +58,7 @@ static void matSetSub(double *a, int n, int m, int i0, int j0, double *s, int ns
 	}
 }
 
-// get ns x ns submatrix s from n x n matrix a at position i0, j0
+// get ns x ms submatrix s from n x m matrix a at position i0, j0
 static void matGetSub(double *a, int n, int m, int i0, int j0, double *s, int ns, int ms)
 {
 	for (int i = 0; i < ns; ++i) {

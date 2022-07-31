@@ -4,8 +4,8 @@
 
 # run commands depending on environment
 run() {
-    #srun --mpi=pmix -n $1 ../poisson $2 $3 $4 $5 $6 > out.log
-    mpirun --oversubscribe -np $1 ../poisson $2 $3 $4 $5 $6 > out.log
+    #srun --mpi=pmix -n $1 ../parps $2 $3 $4 $5 $6 > out.log
+    mpirun --oversubscribe -np $1 ../parps $2 $3 $4 $5 $6 > out.log
 }
 
 if [ $# != 6 ]; then

@@ -3,8 +3,8 @@
 
 # run command depending on environment
 run() {
-    #srun --mpi=pmix -n $1 ../poisson $2 $3 $4 $5 $6 > sinsq$4n$1.log
-    mpirun --oversubscribe -np $1 ../poisson $2 $3 $4 $5 $6 > sinsq$4n$1.log
+    #srun --mpi=pmix -n $1 ../parps $2 $3 $4 $5 $6 > sinsq$4n$1.log
+    mpirun --oversubscribe -np $1 ../parps $2 $3 $4 $5 $6 > sinsq$4n$1.log
 }
 
 for np in 1 4 6 9 12 16 20 25 30 36 42 49 56 64; do

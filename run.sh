@@ -6,8 +6,8 @@ cd run
 ./input.sh
 
 # test cases
-../poisson sinsq64.dat serial.dat 64 1.5 0.001
-mpirun -np 4 ../poisson sinsq64.dat parallel.dat 64 1.5 0.001
+../parps sinsq64.dat serial.dat 64 1.5 0.001
+mpirun -np 4 ../parps sinsq64.dat parallel.dat 64 1.5 0.001
 
 # find gamma values
 ./rungamma.sh
