@@ -442,7 +442,7 @@ void solve(Solver *s)
 {
 	double res = 0.; // relative residual for iteration
 	double resold = 0.; // relative residual for last iteration
-	int logn = 1000000/s->n/s->m; // logging period
+	int logn = max(1000000/s->n/s->m, 1); // logging period
 	double resmax = 1.e6; // maximum residual/iterations to break if exceeded
 	int itmax = 1000000;
 	
