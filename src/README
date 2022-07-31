@@ -1,7 +1,7 @@
 Compiling the code
 ==================
 
-The code is written in C, and uses the C math and MPI libraries. It is compiled using GCC with the gnu11/C11 standard.
+The code is written in C, and uses the C math and MPI libraries. It is compiled using mpicc with the gnu11/C11 standard.
 
 Python is used for plotting data files (files in directory above).
 
