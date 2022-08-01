@@ -26,7 +26,7 @@ def matplot(a, titles=["", "", ""], fpath="", show=True):
         plt.show()
         plt.close()
 
-show = True # show plots?
+show = False # show plots?
 dfpath1 = "out.dat"
 ndata = len(sys.argv) - 1
 if len(sys.argv) > 1:

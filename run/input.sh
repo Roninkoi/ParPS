@@ -24,7 +24,6 @@ sinsq 320 ${SEED} sinsq320.dat
 sinsq 384 ${SEED} sinsq384.dat
 sinsq 448 ${SEED} sinsq448.dat
 sinsq 512 ${SEED} sinsq512.dat
-sinsq 4096 ${SEED} sinsq4096.dat
 
 N=100
 gawk 'BEGIN {
