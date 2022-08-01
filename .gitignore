@@ -6,4 +6,6 @@ doc.tex
 figs
 parps
 __pycache__
+*.pdf
+!doc.pdf
 
