@@ -1,8 +1,8 @@
 # Parallel Poisson's equation Solver
 
 <p align="center">
-<img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Domain_decomposition_and_process_communication.svg" width=70% height=70%>
-<img src="https://user-images.githubusercontent.com/12766039/182003432-e4cdee34-c674-4556-b3fd-61c91abbda6c.png" width=70% height=70%>
+<img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Domain_decomposition_and_process_communication.svg" width=69% height=69%>
+<img src="https://user-images.githubusercontent.com/12766039/182003432-e4cdee34-c674-4556-b3fd-61c91abbda6c.png" width=69% height=69%>
 </p>
 
 Solve the 2D Poisson's equation
