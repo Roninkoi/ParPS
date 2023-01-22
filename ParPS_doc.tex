@@ -1,0 +1,270 @@
+\documentclass[10pt]{article}
+\usepackage[dvips]{graphicx}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage[finnish, english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{wrapfig}
+\usepackage{caption}
+\usepackage{amsmath, amsfonts, amssymb, amsthm}
+\usepackage{fancyhdr}
+\usepackage{titling}
+\usepackage{float}
+\usepackage{authblk}
+\usepackage{comment}
+\usepackage{braket}
+\usepackage[formats]{listings}
+
+\usepackage{/home/rak/Code/rakmacros/rakmacros}
+
+\usepackage[top=52pt, bottom=2cm, left=2cm, right=2cm]{geometry}
+\pagestyle{fancy}
+
+\usepackage{academicons}
+\newcommand{\orcid}[1]{\href{https://orcid.org/#1}{\textcolor[HTML]{A6CE39}{\aiOrcid}}}
+
+\title {
+  Parallel solution of the 2D Poisson's equation using OpenMPI
+}
+\date{\today}
+
+\def \firstauth{
+  Roni Koitermaa
+}
+
+\def \email{roninkoi@iki.fi}
+
+\usepackage[pdftex,
+pdfauthor={\firstauth},
+pdftitle={\thetitle}]{hyperref}
+
+\author[1] {
+  \firstauth
+  \orcid{0000-0001-9814-7358}
+  \thanks{\href{mailto: \email}{\email}}
+}
+
+% \affil[1] {
+% Helsinki Institute of Physics and Department of Physics, P. O. Box 43, 00014 University of
+% Helsinki, Finland
+% }
+
+\fancyhf{}
+\setlength{\headheight}{15pt}
+\lhead{\thetitle}
+\rhead{\firstauth}
+\cfoot{\thepage}
+
+\lstset{ % listing
+  basicstyle=\small\ttfamily,
+  columns=flexible,
+  breaklines=true
+}
+
+\begin{document}
+
+\setlength{\belowcaptionskip}{0pt}
+
+\selectlanguage{english}
+
+\normalsize
+
+\maketitle
+
+% \begin{abstract}
+% \end{abstract}
+
+\section{Introduction}
+
+Parallelization of numerical algorithms allows us to speed up the execution of our programs, which increases the size of systems we can study. Physical laws often take the form of \textit{partial differential equations} (PDEs), so in order to study physical systems numerically, we need to be able to solve these equations on a computer. Solving these equations can be computationally intensive, so we want to leverage all of the capabilities of our hardware. Using multiple processors to divide the work is a central goal in the parallelization of PDE solvers.
+
+\textit{Poisson's equation}
+\be
+\nabla^2 f = g
+\ee
+is a ubiquitous PDE found in many areas of physics, e.g. in electrostatics. In many cases, we want to solve $f$ for some $g$, e.g. when we want to know the electric field for some charge density distribution in the case of electrostatics. While solving $f$ analytically can be very difficult in most cases, the equation can be easily solved numerically. This can be done by \textit{discretizing} the equation, i.e. by dividing the solution domain into finite pieces. This way the discrete form of the equation can be solved on a computer using some numerical algorithm.
+
+In this work, we solve Poisson's equation in the unit square using domain decomposition to parallelize the successive over-relaxation method. We are interested in the scaling behavior of the methods used, so we study different system sizes solved on different numbers of processors. Since for a larger number processors the amount of work done by each processor is smaller, we would expect the solution time to decrease.
+
+\section{Methodology} \label{back}
+
+\subsection{Algorithms}
+
+In 2 dimensions, we have the equation \cite{ass}
+\be
+\frac{\partial^2}{\partial x^2} f(x, y) + \frac{\partial^2}{\partial y^2} f(x, y) = g(x, y)
+\ee
+defined in the unit square, which can be discretized using the \textit{finite difference method} by dividing the domain into an $N \times N$ matrix:
+\bna
+f_{ij} = f\lb\frac{i}{N}, \frac{j}{N}\rb, \ i, j \in [0, N].
+\ena
+The central difference approximation \cite{ass}
+\bna
+\frac{\partial f}{\partial x} \approx \frac{f(x + 1/2N) - f(x - 1/2N)}{N}
+\ena
+can be used to to obtain the derivatives of $f$. This gives the LHS second derivatives using three points \cite{ass}
+\bna
+\frac{\partial^2}{\partial x^2} f(x, y) \approx \frac{1}{N^2} \lb f(x + 1/N, y) - 2 f(x, y) + f(x - 1/N, y) \rb, \\
+\frac{\partial^2}{\partial y^2} f(x, y) \approx \frac{1}{N^2} \lb f(x, y + 1/N) - 2 f(x, y) + f(x, y - 1/N) \rb, \\
+\ena
+so we get the equation \cite{ass}
+\bna
+f_{ij} = \frac{1}{4} \lb f_{i+1, j} + f_{i-1, j} + f_{i, j+1} + f_{i, j-1} \rb - \frac{g_{ij}}{4 N^2}.
+\ena
+For Dirichlet boundary conditions defined on the edges of the square, this is an $(n - 1) \times (n - 1)$ system of equations, which can be solved using many methods that are used in matrix solving. \textit{Successive over-relaxation} (SOR) is a class of methods (containing, e.g. Gauss-Seidel) which has the iteration $k+1$ \cite[p.~866]{nr}
+\be
+f_{ij}^{(k+1)} = (1 - \gamma) f_{ij}^{(k)} + \frac{\gamma}{4} \lb f_{i-1,j}^{(k+1)} + f_{i,j-1}^{(k+1)} + f_{i+1, j}^{(k)} + f_{i,j+1}^{(k)} \rb,\label{sor}
+\ee
+for an \textit{over-relaxation parameter} $\gamma \in \ ]1, 2[$, which determines how strongly solution values are influenced by their neighbours. Compared to the Jacobi over-relaxation method (JOR), SOR uses updated $k+1$ values as soon as they are available, which means values in a matrix can be overwritten, leading to better space complexity. Use of SOR is desirable because it results in faster convergence than JOR for optimal $\gamma$.
+
+\subsection{Parallelization}
+
+\quadfig
+{figs/sinsq64n4dc.pdf}{Domain split into $N_p = 4$ processes.\label{dc4}}
+{figs/sinsq64n5dc.pdf}{Domain split into $N_p = 5$ processes.\label{dc5}}
+{figs/sinsq64n6dc.pdf}{Domain split into $N_p = 6$ processes.\label{dc6}}
+{figs/sinsq64n16dc.pdf}{Domain split into $N_p = 16$ processes.\label{dc16}}
+
+Using domain decomposition, we can split a boundary value problem into many smaller boundary value problems. A simple way to do this in a physical system is to divide the problem domain spatially among processors, so that each processor takes care of a localized part of the system. Each sub-problem can be solved in parallel, while making sure each has the appropriate boundary conditions. In order to make sure we solve the larger problem correctly, there needs to be inter-process communication.
+
+In figures \ref{dc4}, \ref{dc5}, \ref{dc6}, \ref{dc16} we demonstrate the spatial splitting of a solution between different numbers of processors. In these figures, there is no inter-process communication, so each part of the system is solved entirely separately. When we assemble the final results together, the solution to the larger problem is not correct. Instead, in order to get the correct solution, each process needs to get its boundary conditions from the neighbouring processes.
+
+\dualfigs
+{figs/even.pdf}{Lattice division for even case \cite{rba}.\label{even}}
+{figs/odd.pdf}{Lattice division for odd case \cite{rba}.\label{odd}}
+{0.7}
+
+To parallelize the SOR method, we need to make sure that $k+1$ iteration values in equation \ref{sor} are always available when needed. In the serial case this is not an issue, but when parallelizing the method, problems appear at the edges of each process domain. At the edges, it is not guaranteed if the values on the neighbouring processes are $k+1$ or $k$, since they are currently worked on by the neighbouring process. This problem can be solved by dividing the grid into alternating sublattices using the ``red-black algorithm'' \cite{rb}. The entire domain is colored using ``black'' and ``red'' points, as shown in figure \ref{even}. To solve the ``black'' sublattice, we only need the ``red'' neighbour values. This means that we do not need to know the ``black'' neighbour values when solving the sublattice. To solve the whole lattice, we first solve one of the lattices (red or black), get neighbouring values from other processes, and then solve the other lattice. This process ensures that the $k+1$ iteration values are available each time the system is solved.
+
+When dividing the lattices, we also need to take into account how the processes are divided. Essentially, we divide the process grid into red and black domains depending on where the processes are located. In figures \ref{even} and \ref{odd}, the process boundaries are shown in green. For a lattice with process domains of even size ($N_0=10$), the first element $f_{00}$ belongs to the black sublattice for all processes. However, if process 0 has size $N_0=11$, process 1 can't start with the black sublattice since we would have black and red points lining up. This means that we have solve the black sublattice for process 0 and the red sublattice for process 1 to ensure the algorithm works. In general, if the sum of the $i_0$ and $j_0$ offsets of the process is even, we solve the black sublattice and for the odd case we solve the red sublattice.
+
+Since we assume the lattice to be square in equation \ref{sor}, we have to make sure that the processes evenly divide the grid. In figures \ref{dc5} and \ref{dc6} the process domains are not squares, while in figures \ref{dc4} and \ref{dc16} they are. Using rectangular grids negatively impacts the convergence of the algorithm, so we want to divide the grid as evenly as possible. Safe choices for processor number are the squares: $N_p = N_{p, 0} N_{p, 1} = 1, 4, 9, 16, 25, 36, 49, 64, \ldots$ Ideally we would also want the system size $N$ to be divisible by by $N_{p, 0}$ so that all process domains are square and none of them have to be rectangular. For example, in figure \ref{odd} process 1 would be $11\times10$.
+
+\section{Documentation} \label{doc}
+
+\subsection{Description of code}
+
+Code was written in C solve Poisson's equation in parallel in the unit square. We use OpenMPI for parallellization of the SOR method. The solver consists of the files \verb|solver.c| and \verb|solver.h|, which contain the MPI part of the code. The files \verb|poisson.c| and \verb|poisson.h| contain the solver for Poisson's equation, which uses SOR. The Poisson solver operates within individual processes. Utilities, e.g. for manipulating matrices, are contained in file \verb|util.h|.
+
+\fig{figs/domains.pdf}{Communication between process domains \cite{ddm}.\label{domains}}{0.7}
+
+The code starts by taking in command line arguments from process 0 and distributing these among all processes in fuction \verb|initSolver|. The command line arguments specify the input/output files, system size $N$, over-relaxation parameter $\gamma$ and convergence criterion $C$. Process 0 reads the input file, which is an $N \times N$ matrix that specifies the RHS $g$. The edges of this matrix are the Dirichlet boundary conditions for $f$.
+
+Depending on whether the program is run in serial or parallel mode, the function \verb|decompose| is run, which performs domain decomposition for the system. This function makes a Cartesian 2D $N_p = N_{p, 0} \times N_{p, 1}$ grid using the processors (\verb|MPI_Dims_create|), making the grid as square as possible ($N_{p, 0} = \lfloor \sqrt{N_p} \rfloor$). Boundaries of each process domain are set to fixed (not periodic). A Cartesian communicator is created(\verb|MPI_Cart_create|), and all inter-process communication is done in this communicator. The Cartesian id of the root process is shared among all processes using \verb|MPI_Bcast|. We get the coordinates of each process domain in this grid using \verb|MPI_Cart_coords|, and calculate the sizes of each by dividing $N \times N$ into the $N_{p, 0} \times N_{p, 1}$ process grid. In the case that system size $N$ is not divisible into the processes equally, we place the remaining points into the left/up corner processes (with coordinates $x_{p, \x{id}} = y_{p, \x{id}} = 0$). Each process domain is of size $n \times m$, so they are not restricted to squares. Using the Cartesian communicator, each process gets its $x$ and $y$ neighbour process ids (\verb|MPI_Cart_shift|). The program prints the process grid layout in the log file under ``process topology''.
+
+Next, we determine the boundary conditions for each process. Some processes are located on the edge of the entire domain, while some are on the inside, surrounded on all sides by other processes. The Dirichlet boundary conditions need to be changed depending on the location of the process. In figure \ref{domains}, we have visualized how process domains are split (among 4 processes in this example) and how boundary conditions are determined. On the left, we have the entire problem domain, while on the right we have the decomposed process domains. In the figure, each process domain is colored uniquely, with boundary conditions colored with the matching domain. On the right, the boundary conditions in the middle are determined by the neighbouring processes. The outside boundaries are determined from the exterior boundary conditions defined in the input file, colored yellow. Arrows denote how processes communicate between each other. This communication occurs by passing rows and columns (of size $n$ and $m$) to the boundaries of neighbouring processes, which determine the Dirichlet boundary conditions for each process domain. To make this communication easier, we define MPI datatypes for rows and columns in these matrices, which makes sending and receiving them simpler.
+
+Since we have arbitrarily sized $n \times m$ process domains, each process needs to know the coordinates and sizes of other processes. Each process sends its coordinates $(x_{p, \x{id}}, y_{p, \x{id}})$ and size $(n, m)$ to the root process using \verb|MPI_Gather|. The root process gathers the values into arrays of size $N_p$ (indexed by Cartesian id) and calculates the offsets of each process domain on the entire domain by using the sizes and coordinates. Knowing these offsets is required when we need to communicate process matrix values. The root process shares all of these arrays with the other processes using \verb|MPI_Bcast|.
+
+In order to set up the solvers for each process domain, we need to divide the full $f$ and $g$ into the process domains. Figure \ref{domains} illustrates how the domain is divided, and this process is done for both $f$ (containing boundary conditions) and $g$. The root process has the full $f$ and $g$ matrices, so first it sets its own $n \times m$ submatrices from the full ones to its own Poisson solver. Then it iterates through all processes in the Cartesian communicator and gets the submatrices for each process depending on their sizes and offsets. The root process sends the matrices to each process using \verb|MPI_Send|, and every other process receives these using \verb|MPI_Recv|. At the end, each process has its own part of the full system.
+
+Solving Poisson's equation using succesive over-relaxation proceeds by updating the values in the matrix $f$ using equation \ref{sor} in a loop. The solver keeps updating $f$ as long as the system has a \textit{residual} $\delta$ that is less than the convergence criterion $C$. When $\delta \leq C$, we consider the solution to have converged and stop iterating. The Poisson solver in \verb|poisson.c| has two types of SOR iteration functions: one for the serial version (\verb|solveSOR|) and two for the parallel one (\verb|solveSORR| for red sublattice and \verb|solveSORB| for black sublattice). In the serial version, the entire lattice is solved at once using the Gauss-Seidel iteration for SOR as shown in equation \ref{sor} (function \verb|iterateGS|). For the parallel version, the red-black algorithm from section \ref{back} is used. The black sublattice function starts at $f_{00}$ and solves for every other point onwards in an alternating fashion as shown in figure \ref{even}. The red sublattice function starts at $f_{01}$ and proceeds the same way. When solving an SOR iteration in parallel, the process decides whether to start with the red or black sublattice first as discussed in section \ref{back}. The SOR update functions return the residual for the iteration, which is calculated as the difference between the old values $f_{ij}'$ and the new values $f_{ij}$ as
+\bna
+\delta = \sum_{i, j} |f_{ij} - f_{ij}'|.
+\ena
+Since the red-black algorithm divides the iteration in two parts, to calculate the total residual in the parallel version, we add the red and black residuals together: $\delta = \delta_r + \delta_b$.
+
+Inter-process communication needs to happen after each SOR iteration. The update proceeds as follows (assuming ``even'' case):
+\begin{enumerate}
+\item Solve black sublattice to get $k+1$ values for neighbours of red sublattice
+\item Communicate black sublattice values to neighbouring processes
+\item Solve red sublattice to get $k+1$ values for neighbours of black sublattice
+\item Communicate red sublattice values to neighbouring processes
+\end{enumerate}
+In the code, steps 2. and 4. are identical, and simply occurs by communicating the entire boundary values to the neighbour processes. Communication is done in function \verb|communicate|, which exchanges edge values between all processes as shown using arrows in figure \ref{domains}. Since we have defined column and row datatypes, the entire edges can be communicated using \verb|MPI_Recv| and \verb|MPI_Send|. First, the $x$ boundary values are communicated, with even coordinate processes receiving into their BC values and and odd coordinate processes sending from their solution values. After this, the two processes switch to make sure both processes have updated BC values. In the $x$ direction, the first receiving process gets values from its left and the sending process sends to its right. After a two-way update the direction is switched. The $y$ edge communication occurs similarly afterwards. Since residuals are computed only for process domains, we need to add the residuals from all processes to get the total. This is done using \verb|MPI_Reduce| with \verb|MPI_SUM| to calculate the total in the root process. The root process shares the total with other processes using \verb|MPI_Bcast| to make sure they all stop at the same time.
+
+When the convergence criterion is satisfied, the iteration is stopped and the solution $f$ is written to a file by the root process. The root process only has its own submatrix, so the solutions from other processes need to be communicated back to the root process. This is done similarly as when distributing $f$ from the root process to the other processes, except in reverse. The root process receives the submatrices from every other process (communicated using \verb|MPI_Send|/\verb|MPI_Recv|) and extracts the solutions from them, excluding the BCs. These submatrices are set to the final $N \times N$ matrix, which is printed to the output file.
+
+The program prints various information about the process configuration and solution process to stdout, which can be directed to files. The residual is printed at regular intervals, and at the end, the total number of iterations is shown along with the wall time. If the solution didn't converge within a maximum number of iterations or the residual increased beyond its maximum (solution diverged), the log file indicates this.
+
+\subsection{Instructions for using the code}
+
+The code in directory \verb|src| can be compiled using GCC with a makefile in the directory above. To run the program, the shell script \verb|run.sh| can be used to perform the runs shown in the following section. This script generates the input files by running \verb|run/input.sh| (awk), finds optimum values for $\gamma$ by running \verb|run/rungamma.sh| and tests the scalability by running \verb|run/run.sh|. Plotting can be done using the script \verb|./plot.sh|, which plots $\gamma$ curves using \verb|plotgamma.py| and scaling curves using \verb|plotscaling.py|. Matrices from \verb|.dat| files can be plotted using \verb|./matplot.py <out.dat>|.
+
+The (serial) code itself is run using:
+\begin{lstlisting}[numbers=none]
+  ./parps <infile> <outfile> <n> <gamma> <crit>
+\end{lstlisting}
+The arguments specify the input file for $g$, the output file for $f$, system size $N$ for the $N \times N$ matrix, over-relaxation parameter $\gamma$ and convergence criterion $C$. On PCs the parallel version can be run using:
+\begin{lstlisting}[numbers=none]
+  mpirun -np <number of processes> ./parps <infile> <outfile> <n> <gamma> <crit>
+\end{lstlisting}
+On Turso this is:
+\begin{lstlisting}[numbers=none]
+  srun --mpi=pmix ./parps <infile> <outfile> <n> <gamma> <crit>
+\end{lstlisting}
+
+\section{Benchmarking}
+
+Development and initial testing was done on a 4-core Intel i7-4770 PC with shared memory. Software on the PC was GCC 12.1 and OpenMPI 4.1. Scalability testing was done on the University of Helsinki Turso cluster, specifically Ukko2 with 32-core Intel Xeon E5540. On Turso we chose GCC 8.3 and OpenMPI 3.1. Runs on Turso were done both with 1 and 2 Ukko2 nodes, with InfiniBand for MPI message passing.
+
+To test that the serial Poisson's equation solver is working correctly, we want to test it with a $g$ for which an analytical solution is known. In the 2D unit square, one simple solution is obtained for \cite{poi}
+\bna
+g_a = g(x, y) = -2 \pi^2 \sin(\pi x) \sin(\pi y),
+\ena
+which gives the solution
+\bna
+f(x, y) = \sin(\pi x) \sin(\pi y).
+\ena
+
+\quadfig
+{figs/sinsq64.pdf}{RHS $g_a$ with $N=64$.\label{sinsq64}}
+{figs/sinsq64n1.pdf}{Solution for $g_a$ with $N_p=1$ processes.\label{sinsq64n1}}
+{figs/sinsq64n4.pdf}{Solution for $g_a$ and $N_p=4$ processes.\label{sinsq64n4}}
+{figs/diff64.pdf}{Difference between serial and parallel versions.\label{diff64}}
+
+\noindent We generate $g_a$ with size $N=64$ using the shell/awk script \verb|run/input.sh|. The RHS $g$ is plotted in figure \ref{sinsq64}. This is solved in serial mode on the PC with $\gamma=1.5$ and $C=0.001$ to produce the solution $f$ in figure \ref{sinsq64n1}. We can see that this does have the shape of the function we were expecting, with good accuracy. Next, we test the serial version of the program, doing domain decomposition with $N_p=4$ processes. This also results in the correct solution (figure \ref{sinsq64n4}), so we can conclude that inter-process communication is working correctly (compare figures \ref{dc4},  \ref{dc5}, \ref{dc6} and \ref{dc16}). In figure \ref{diff64} we have plotted the differences between the serial and parallel versions, which are of the order of magnitude $10^{-6}$, much less than the convergence criterion. 
+
+\dualfigs
+{figs/sinedge.pdf}{RHS $g$ with sinusoidal edge and $N=100$.\label{sinedge}}
+{figs/sinedgesol.pdf}{Solution with $N_p = 4$.\label{sinedgen4}}
+{0.6}
+
+In the previous cases the boundary condition is 0, so we also want to see if the solution satisfies the boundary condition in the parallel version. We generate a $g$ with some sinusoids on the edges, which are the Dirichlet boundary conditions the solution should satisfy. This time the system size is $N=100$ and the run is performed with $N_p = 4$ processes. In figure \ref{sinedgen4} we have the solution for figure \ref{sinedge}, which shows matching boundary conditions.
+
+\fig{figs/gamma.pdf}{Number of iterations at convergence as a function of $\gamma$ for various system sizes.\label{gamma}}{0.5}
+
+In order to achieve optimal convergence, we need to find the value of the over-relaxation parameter $\gamma$, which depends on the system size. This can be done using the shell script \verb|run/findgamma.sh|, which steps $\gamma$ in the range [$\gamma_0$, $\gamma_1$] to determine the number of iterations it takes to reach convergence. For the optimal $\gamma$ value, we would see fast convergence of the solution, with few iterations required to reach the set criterion.
+
+To find the optimal $\gamma$ values for many system sizes, we run the script \verb|run/rungamma.sh| on Turso with $N_p=16$ processes (1 Ukko2 node). In figure \ref{gamma}, the iteration number is plotted as a function of $\gamma$ in the range [1.5, 1.99] (with 50 steps) with different system sizes from $N = 64$ to $N= 512$. The RHS is $g_a$ with different $N$. We can see that the minima for different system sizes are different, with the larger systems tending to have $\gamma$ values closer to 2. These results are similar to what we see in the literature \cite{rel}.
+
+\dualfig
+{figs/scalingbad.pdf}{Scaling of solution time, $N_p = 1, 2, 3, \ldots, 32$, run on a single Ukko2 node.\label{scalingbad}}
+{figs/scaling64.pdf}{Scaling of solution time, $N_p \in N_s$, run on 2 Ukko2 nodes.\label{scalingtwo}}
+
+In order to determine how effective the parallelization of our code is, we want to study the scaling behavior of the solution time as a function of the number of processes. At $N_p > 1$ there should be some benefits to using more processors, though there may be overhead when using MPI, so we would not expect the benefits to continue for ever larger numbers of processors.
+
+The choice of processor numbers is important for convergence of the solution. We can't use processor numbers that result in highly non-square decompositions, since our assumption is that each domain is roughly square. We run \verb|run/run.sh| on Turso with 1 Ukko2 node and 32 reserved CPUs. In figure \ref{scalingbad} we use all processor numbers in the range $N_p \in [0, 32]$, which contains many prime numbers. In the figure, we can see spikes for certain processor numbers, such as $5, 7, 10 \ (2\times5), 14 \ (2\times7), \ldots$ Diverged solutions are not shown in this plot, and for large prime numbers the convergence gets worse and worse. Because of these results, for the next simulations, we will pick numbers such that $N_{p, 0}$ and $N_{p, 1}$ can be at most 1 apart, i.e. $N_s = \lcb 1, 2, 4, 6, 9, 12, 16, \ldots \rcb$. This gives a reasonable number of data points while being roughly square.
+
+Next, we run on Turso with 2 Ukko2 nodes to see at what point increasing the processor number starts giving diminishing returns. Now message passing can require inter-node communication, which can be slow. The results are plotted in figure \ref{scalingtwo} up to 64 processors. We can see that for most system sizes, the solution time slows down around 16 processors and starts increasing beyond 32 processors. At this point each domain has only a few points, so most of the time will be spent on inter-process communication.
+
+\fig
+{figs/scaling.pdf}{Scaling of solution time, $N_p \in N_s$, run 4 times on a single Ukko2 node.\label{scal}}{0.5}
+
+Finally, we run on a single Ukko2 node up to 32 processors to determine the scaling curves for different system sizes. We would expect parallellization to make more of a difference for larger systems. In figure \ref{scal}, we have the averaged solution times over 4 runs, with fitted curves for $t \propto N_p^\alpha$. The average fitted value for the power law is $\alpha = -0.9611$, so we can conclude this is a roughly $1/N_p$ dependence. For the large systems the time saving is greater than for small systems.
+
+\section{Conclusions}
+
+We developed a code to solve Poisson's equation in the unit square in parallel using successive over-relaxation. Domain decomposition was used to do the parallelization with MPI. Some of the challenges in parallelizing the algorithms were discussed and methods for overcoming these were presented. A detailed description of the code was given to show how the discussed methods were implemented in practice.
+
+Our code was tested using an analytically known solution and found to have good accuracy. The parallel version of the code was found to give the same solutions as the serial one, and it was also found to be faster than the serial one. We determined optimal over-relaxation parameter values for different system sizes, which were used to study the scaling behavior of the parallel code. It was found that the solver works best for square processor numbers, and that there is a limit to how many processors will make the solution time faster. Over all system sizes, the solution time was found to scale with the processor number as roughly $1/N_p$.
+
+Ideally we would like to utilize any number of processors to do the domain decomposition. The MPI part of our code is designed to work with rectangular domains, but the solution algorithms are not. Adding support for rectangular domains would require changes to how we solve the linear system of equations. A further improvement could be also to add support for arbitrarily-shaped domains. The MPI implementation of the code is likely not optimal, and improvements could be made especially in inter-process communication. This is likely a major bottleneck as the number of processes increases, so even small improvements could make a big difference.
+
+\begin{thebibliography}{9}
+\bibitem{ass} Tools of high performance computing 2022 - Final project. University of Helsinki, 2022.
+\bibitem{nr} William H. Press, Saul A. Teukolsky, William T. Vetterling, and Brian P. Flannery. Numerical Recipes in C: The Art of Scientific Computing. Cambridge University Press, Cambridge, England, 2nd edition, 2002.
+\bibitem{rba} Roni Koitermaa. Red-black algorithm on square grid. Wikimedia Commons, 2023. Available at: \url{https://commons.wikimedia.org/wiki/File:Red-black_algorithm_on_square_grid.svg}.
+\bibitem{rb} Dan Wallin, Henrik Löf, Erik Hagersten and Sverker Holmgren. Multigrid and Gauss-Seidel Smoothers Revisited: Parallelization on Chip Multiprocessors. Proceedings of the 20th annual international conference on Supercomputing, 2006.
+\bibitem{ddm} Roni Koitermaa. Domain decomposition and process communication. Wikimedia Commons, 2023. Available at: \url{https://commons.wikimedia.org/wiki/File:Domain_decomposition_and_process_communication.svg}.
+\bibitem{poi} Abdon Atangana and Adem Kılıçman. Analytical Solutions of Boundary Values Problem of 2D and 3D Poisson and Biharmonic Equations by Homotopy Decomposition Method. Abstract and Applied Analysis, 2013.
+\bibitem{rel} Shiming Yang and Matthias K. Gobbert. The optimal relaxation parameter for the SOR method applied to the Poisson equation in any space dimensions. Applied Mathematics Letters, 22(3):325-331, 2009.
+\end{thebibliography}
+
+\end{document}
+
+%%% Local Variables:
+%%% TeX-command-extra-options: "-shell-escape"
+%%% coding: utf-8-unix
+%%% TeX-engine: luatex
+%%% End:
