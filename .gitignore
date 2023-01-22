@@ -2,10 +2,10 @@
 *.dat
 *.aux
 *.out
-doc.tex
+ParPS_dox.tex
 figs
 parps
 __pycache__
 *.pdf
-!doc.pdf
+!ParPS_doc.pdf
 
