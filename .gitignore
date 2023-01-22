@@ -2,7 +2,7 @@
 *.dat
 *.aux
 *.out
-ParPS_dox.tex
+ParPS_doc.tex
 figs
 parps
 __pycache__
