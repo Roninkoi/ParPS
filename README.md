@@ -19,7 +19,7 @@ Usage:
 
 infile = input file for $g$ as an $n \times n$ matrix, edges are boundary conditions for $f$
 
-infile = solution output file for $f$ as an $n \times n$ matrix
+outfile = solution output file for $f$ as an $n \times n$ matrix
 
 n = system size
 
